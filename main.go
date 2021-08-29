@@ -2,18 +2,16 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/mux"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 var DB *gorm.DB
 var err error
-
-const URL = "localadmin:admin@tcp(127.0.0.1:3306)/notes?charset=utf8mb4&parseTime=True&loc=Local"
 
 // Note struct (Model)
 type Note struct {
@@ -25,57 +23,91 @@ type Note struct {
 func getNotes(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var notes []Note
-	DB.Find(&notes)
-	err = json.NewEncoder(w).Encode(notes)
+	err = DB.Find(&notes).Error
 	if err != nil {
-		log.Println(err)
+		log.Println("Error", err)
+		_ = json.NewEncoder(w).Encode(err.Error())
 	}
+	_ = json.NewEncoder(w).Encode(notes)
+
 }
 
 func createNote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var note Note
 	_ = json.NewDecoder(r.Body).Decode(&note)
-	DB.Create(&note)
-	err = json.NewEncoder(w).Encode(note)
+	err = DB.Create(&note).Error
 	if err != nil {
-		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(err.Error())
+	} else {
+		_ = json.NewEncoder(w).Encode(note)
 	}
+
 }
 
 func updateNote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
+	id := mux.Vars(r)["id"]
+	log.Println(mux.Vars(r))
 	var note Note
-	DB.First(&note, params["id"])
-	_ = json.NewDecoder(r.Body).Decode(&note)
-	err = json.NewEncoder(w).Encode(note)
-	if err != nil {
+	if s, err := strconv.Atoi(id); err == nil {
+		note.ID = uint(s)
+	} else {
 		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(err.Error())
+		return
 	}
+	err = DB.First(&note).Error
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(err.Error())
+		return
+	}
+
+	var updatedNote Note
+	_ = json.NewDecoder(r.Body).Decode(&updatedNote)
+
+	note.Title = updatedNote.Title
+	note.Description = updatedNote.Description
+
+	err = DB.Save(&note).Error
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(err.Error())
+	} else {
+		_ = json.NewEncoder(w).Encode(note)
+	}
+
 }
 
 func deleteNote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
-	var note Note
-	DB.Delete(&note, params["id"])
-	err = json.NewEncoder(w).Encode("note deleted successfully")
+	log.Println("id:", params["id"])
+	err := DB.Delete(&Note{}, params["id"]).Error
 	if err != nil {
-		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(err.Error())
 	}
 }
 
-func main() {
+func InitDB(URL string) {
 	DB, err = gorm.Open(mysql.Open(URL), &gorm.Config{})
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println("Error", err)
 		panic("Cannot connect to DB")
 	}
 	err := DB.AutoMigrate(&Note{})
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func main() {
+	InitDB("localadmin:admin@tcp(127.0.0.1:3306)/notes?charset=utf8mb4&parseTime=True&loc=Local")
+
 	router := mux.NewRouter()
 
 	router.HandleFunc("/notes", getNotes).Methods("GET")
