@@ -101,6 +101,28 @@ func TestUpdateNote(t *testing.T) {
 	tearDown()
 }
 
+func TestUpdateNonExistingNote(t *testing.T) {
+	setUp()
+
+	var jsonReq = []byte(`{"title": "Updated Title", "description": "Updated Description"}`)
+	req, _ := http.NewRequest("PUT", "/notes/4", bytes.NewBuffer(jsonReq))
+	req = mux.SetURLVars(req, map[string]string{"id": "4"})
+
+	handler := http.HandlerFunc(updateNote)
+
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, req)
+
+	status := response.Code
+
+	if status != http.StatusBadRequest {
+		t.Errorf("Handler returned a wrong status code: got %v expected %v", status, http.StatusOK)
+	}
+
+	tearDown()
+}
+
 func TestDeleteNote(t *testing.T) {
 	setUp()
 	//Create a new HTTP POST request
@@ -118,9 +140,6 @@ func TestDeleteNote(t *testing.T) {
 	if status != http.StatusOK {
 		t.Errorf("Handler returned a wrong status code: got %v want %v", status, http.StatusOK)
 	}
-
-	var note string
-	_ = json.NewDecoder(io.Reader(response.Body)).Decode(&note)
 
 	tearDown()
 }
