@@ -126,7 +126,7 @@ func TestDeleteNote(t *testing.T) {
 }
 
 func setUp() {
-	InitDB("localadmin:admin@tcp(127.0.0.1:3306)/notes_test?charset=utf8mb4&parseTime=True&loc=Local")
+	InitDB("root:root@tcp(127.0.0.1:3306)/notes_test?charset=utf8mb4&parseTime=True&loc=Local")
 	DB.Create(nt)
 }
 
