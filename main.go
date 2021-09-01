@@ -106,7 +106,8 @@ func InitDB(URL string) {
 }
 
 func main() {
-	InitDB("localadmin:admin@tcp(127.0.0.1:3306)/notes?charset=utf8mb4&parseTime=True&loc=Local")
+	InitDB("root:root@tcp(db:3306)/notes?charset=utf8mb4&parseTime=True&loc=Local")
+	log.Println("Serving restapi on port 8000...")
 
 	router := mux.NewRouter()
 
